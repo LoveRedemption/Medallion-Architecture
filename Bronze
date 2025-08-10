@@ -1,0 +1,198 @@
+CREATE SCHEMA IF NOT EXISTS BRONZE;
+USE SCHEMA BRONZE;
+
+-- Create the orders table
+CREATE OR REPLACE TABLE orders (
+  order_id                          VARCHAR      NOT NULL,
+  location_id                       VARCHAR      NOT NULL,
+  created_at                        TIMESTAMP_NTZ NOT NULL,
+  updated_at                        TIMESTAMP_NTZ NOT NULL,
+  closed_at                         TIMESTAMP_NTZ,
+  state                             VARCHAR,
+  version                           NUMBER,
+  total_money_amount                NUMBER(38,2),
+  total_money_currency              VARCHAR(10),
+  total_tax_money_amount            NUMBER(38,2),
+  total_tax_money_currency          VARCHAR(10),
+  total_discount_money_amount       NUMBER(38,2),
+  total_discount_money_currency     VARCHAR(10),
+  total_tip_money_amount            NUMBER(38,2),
+  total_tip_money_currency          VARCHAR(10),
+  total_service_charge_money_amount NUMBER(38,2),
+  total_service_charge_money_currency VARCHAR(10),
+  net_amount_due_money_amount       NUMBER(38,2),
+  net_amount_due_money_currency     VARCHAR(10),
+
+  -- Primary key
+  CONSTRAINT pk_orders PRIMARY KEY (order_id)
+);
+
+-- 1. Order Taxes Table
+--------------------------------------------------------------------------------
+CREATE OR REPLACE TABLE order_taxes (
+  order_id                          VARCHAR      NOT NULL,
+  order_tax_uid                     VARCHAR      NOT NULL,
+  order_tax_catalog_object_id       VARCHAR,
+  order_tax_catalog_version         NUMBER,
+  order_tax_name                    VARCHAR,
+  order_tax_type                    VARCHAR,
+  order_tax_percentage              NUMBER(38,2),
+  order_tax_applied_money_amount    NUMBER(38,2),
+  order_tax_applied_money_currency  VARCHAR(10),
+  order_tax_scope                   VARCHAR,
+  order_tax_auto_applied            BOOLEAN,
+  PRIMARY KEY (order_id, order_tax_uid)
+);
+
+
+-- 2. Order Discounts Table
+--------------------------------------------------------------------------------
+CREATE OR REPLACE TABLE order_discounts (
+  order_id                             VARCHAR      NOT NULL,
+  order_discount_uid                   VARCHAR      NOT NULL,
+  order_discount_catalog_object_id     VARCHAR,
+  order_discount_catalog_version       NUMBER,
+  order_discount_name                  VARCHAR,
+  order_discount_type                  VARCHAR,
+  order_discount_percentage            NUMBER(38,2),
+  order_discount_applied_money_amount  NUMBER(38,2),
+  order_discount_applied_money_currency VARCHAR(10),
+  order_discount_scope                 VARCHAR,
+  PRIMARY KEY (order_id, order_discount_uid)
+);
+
+
+-- 3. Order Sources Table
+--------------------------------------------------------------------------------
+CREATE OR REPLACE TABLE order_sources (
+  order_id   VARCHAR NOT NULL,
+  source_name VARCHAR,
+  PRIMARY KEY (order_id)
+);
+
+-- 4. Applied Taxes Table (line‐item level)
+--------------------------------------------------------------------------------
+CREATE OR REPLACE TABLE applied_taxes (
+  order_id                            VARCHAR      NOT NULL,
+  line_item_uid                       VARCHAR      NOT NULL,
+  applied_tax_uid                     VARCHAR      NOT NULL,
+  applied_tax_tax_uid                 VARCHAR,
+  applied_tax_applied_money_amount    NUMBER(38,2),
+  applied_tax_applied_money_currency  VARCHAR(10),
+  applied_tax_auto_applied            BOOLEAN,
+  PRIMARY KEY (order_id, line_item_uid, applied_tax_uid)
+);   
+
+
+-- 5. Applied Discounts Table (line‐item level)
+--------------------------------------------------------------------------------
+CREATE OR REPLACE TABLE applied_discounts (
+  order_id                               VARCHAR      NOT NULL,
+  line_item_uid                          VARCHAR      NOT NULL,
+  applied_discount_uid                   VARCHAR      NOT NULL,
+  applied_discount_discount_uid          VARCHAR,
+  applied_discount_applied_money_amount  NUMBER(38,2),
+  applied_discount_applied_money_currency VARCHAR(10),
+  PRIMARY KEY (order_id, line_item_uid, applied_discount_uid)
+);
+
+
+-- 6. Line Items Table
+--------------------------------------------------------------------------------
+CREATE OR REPLACE TABLE line_items (
+  order_id                          VARCHAR      NOT NULL,
+  location_id                       VARCHAR,
+  line_item_uid                     VARCHAR      NOT NULL,
+  name                              VARCHAR,
+  quantity                          NUMBER,
+  catalog_object_id                 VARCHAR,
+  catalog_version                   NUMBER,
+  variation_name                    VARCHAR,
+  item_type                         VARCHAR,
+  base_price_money_amount           NUMBER(38,2),
+  base_price_money_currency         VARCHAR(10),
+  variation_total_price_money_amount NUMBER(38,2),
+  variation_total_price_money_currency VARCHAR(10),
+  gross_sales_money_amount           NUMBER(38,2),
+  gross_sales_money_currency         VARCHAR(10),
+  total_tax_money_amount             NUMBER(38,2),
+  total_tax_money_currency           VARCHAR(10),
+  total_discount_money_amount        NUMBER(38,2),
+  total_discount_money_currency      VARCHAR(10),
+  total_money_amount                 NUMBER(38,2),
+  total_money_currency               VARCHAR(10),
+  total_service_charge_money_amount  NUMBER(38,2),
+  total_service_charge_money_currency VARCHAR(10),
+  PRIMARY KEY (order_id, line_item_uid)
+);
+
+-- 7. Net Amounts Table (order‐level)
+--------------------------------------------------------------------------------
+CREATE OR REPLACE TABLE net_amounts (
+  order_id                              VARCHAR      NOT NULL,
+  net_amounts_total_money_amount        NUMBER(38,2),
+  net_amounts_total_money_currency      VARCHAR(10),
+  net_amounts_tax_money_amount          NUMBER(38,2),
+  net_amounts_tax_money_currency        VARCHAR(10),
+  net_amounts_discount_money_amount     NUMBER(38,2),
+  net_amounts_discount_money_currency   VARCHAR(10),
+  net_amounts_tip_money_amount          NUMBER(38,2),
+  net_amounts_tip_money_currency        VARCHAR(10),
+  net_amounts_service_charge_money_amount NUMBER(38,2),
+  net_amounts_service_charge_money_currency VARCHAR(10),
+  PRIMARY KEY (order_id)
+);
+
+-- 8. Return Amounts Table (order‐level)
+--------------------------------------------------------------------------------
+CREATE OR REPLACE TABLE return_amounts (
+  order_id                                VARCHAR      NOT NULL,
+  return_amounts_total_money_amount       NUMBER(38,2),
+  return_amounts_total_money_currency     VARCHAR(10),
+  return_amounts_tax_money_amount         NUMBER(38,2),
+  return_amounts_tax_money_currency       VARCHAR(10),
+  return_amounts_discount_money_amount    NUMBER(38,2),
+  return_amounts_discount_money_currency  VARCHAR(10),
+  return_amounts_tip_money_amount         NUMBER(38,2),
+  return_amounts_tip_money_currency       VARCHAR(10),
+  return_amounts_service_charge_money_amount  NUMBER(38,2),
+  return_amounts_service_charge_money_currency VARCHAR(10),
+  PRIMARY KEY (order_id)
+);
+
+-- 9. Tenders Table
+--------------------------------------------------------------------------------
+CREATE OR REPLACE TABLE tenders (
+  order_id                                     VARCHAR      NOT NULL,
+  tender_id                                    VARCHAR      NOT NULL,
+  tender_location_id                           VARCHAR,
+  tender_transaction_id                        VARCHAR,
+  tender_created_at                            TIMESTAMP_NTZ,
+  tender_amount_money_amount                   NUMBER(38,2),
+  tender_amount_money_currency                 VARCHAR(10),
+  tender_processing_fee_money_amount           NUMBER(38,2),
+  tender_processing_fee_money_currency         VARCHAR(10),
+  tender_type                                  VARCHAR,
+  tender_card_details_status                   VARCHAR,
+  tender_card_details_card_card_brand          VARCHAR,
+  tender_card_details_card_last_4              VARCHAR(4),
+  tender_card_details_card_fingerprint         VARCHAR,
+  tender_card_details_entry_method             VARCHAR,
+  tender_payment_id                            VARCHAR,
+  tender_customer_id                           VARCHAR,
+  tender_cash_details_buyer_tendered_money_amount NUMBER(38,2),
+  tender_cash_details_buyer_tendered_money_currency VARCHAR(10),
+  tender_cash_details_change_back_money_amount NUMBER(38,2),
+  tender_cash_details_change_back_money_currency VARCHAR(10),
+  tender_tip_money_amount                      NUMBER(38,2),
+  tender_tip_money_currency                    VARCHAR(10),
+  tender_card_details_card_card_type           VARCHAR,
+  tender_card_details_card_prepaid_type        VARCHAR,
+  tender_card_details_card_bin                 VARCHAR,
+  tender_card_details_card_exp_month           INTEGER,
+  tender_card_details_card_exp_year            INTEGER,
+  tender_card_details_card_pan_sequence_number VARCHAR,
+  tender_card_details_card_cardholder_name     VARCHAR,
+  tender_card_details_card_payment_account_reference VARCHAR,
+  PRIMARY KEY (order_id, tender_id)
+);

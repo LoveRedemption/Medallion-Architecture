@@ -1,0 +1,108 @@
+CREATE OR REPLACE TABLE dim_date (
+  date_id   INT       PRIMARY KEY,  -- YYYYMMDD
+  date      DATE,
+  year      INT,
+  month     INT,
+  day       INT,
+  weekday   VARCHAR
+);
+
+-- Populate for a reasonable date range:
+INSERT INTO dim_date
+SELECT
+  TO_NUMBER(TO_CHAR(d,'YYYYMMDD')),
+  d,
+  DATE_PART('year', d),
+  DATE_PART('month',d),
+  DATE_PART('day',  d),
+  TO_CHAR(d,'DY')
+FROM TABLE(GENERATOR(rowcount => 3650))  -- ~10 yrs
+  , LATERAL (SELECT DATEADD(day, SEQ4(), '2015-01-01') AS d);
+
+CREATE OR REPLACE TABLE dim_location AS
+SELECT DISTINCT
+  location_id
+FROM SILVER.silver_orders;
+
+CREATE OR REPLACE TABLE dim_product AS
+SELECT DISTINCT
+  catalog_object_id AS product_id,
+  variation_name
+FROM SILVER.silver_line_items;
+
+CREATE OR REPLACE TABLE dim_tender_type AS
+SELECT DISTINCT
+  tender_type AS tender_type_key
+FROM SILVER.silver_tenders;
+
+-- Drop if it exists, then create with only distinct source names
+CREATE OR REPLACE TABLE dim_source (
+  source_id   VARCHAR PRIMARY KEY,   -- surrogate key (hash)
+  source_name VARCHAR NOT NULL
+);
+
+-- Populate it from the Bronze order_sources table
+INSERT INTO dim_source
+SELECT
+  MD5(source_name)       AS source_id,
+  source_name
+FROM (
+  SELECT DISTINCT source_name
+  FROM BRONZE.order_sources
+  WHERE source_name IS NOT NULL
+);
+
+
+
+CREATE OR REPLACE TABLE fact_sales AS
+WITH base AS (
+  SELECT
+    o.order_id,
+    o.order_created_at,
+    li.line_item_uid,
+    li.catalog_object_id       AS product_id,
+    t.tender_type              AS tender_type,
+    o.location_id,
+    o.source_name,
+    li.quantity,
+    li.base_price,
+    li.variation_price,
+    li.gross_sales,
+    li.tax_amount,
+    li.discount_amount,
+    o.net_total_amount,
+    o.return_amount
+  FROM SILVER.silver_orders o
+  JOIN SILVER.silver_line_items li
+    ON li.order_id = o.order_id
+  LEFT JOIN SILVER.silver_tenders t
+    ON t.order_id = o.order_id
+)
+SELECT
+  MD5(base.order_id || base.line_item_uid)            AS fact_id,
+  base.order_id,
+  TO_NUMBER(TO_CHAR(base.order_created_at,'YYYYMMDD')) AS date_id,
+  base.line_item_uid,
+  base.product_id,
+  base.location_id,
+  base.tender_type           AS tender_type_key,
+  ds.source_id,
+  ds.source_name,
+  base.quantity,
+  base.base_price,
+  base.variation_price,
+  base.gross_sales,
+  base.tax_amount,
+  base.discount_amount,
+  base.net_total_amount,
+  base.return_amount
+FROM base
+LEFT JOIN GOLD.dim_source ds
+  ON ds.source_name = base.source_name
+JOIN GOLD.dim_product p
+  ON p.product_id = base.product_id
+;
+
+
+select order_id,
+from fact_sales

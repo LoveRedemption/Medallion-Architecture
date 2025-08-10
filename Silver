@@ -1,0 +1,106 @@
+CREATE OR REPLACE TABLE silver_orders AS
+SELECT
+  o.order_id,
+  o.location_id,
+  o.created_at::TIMESTAMP_NTZ    AS order_created_at,
+  o.updated_at::TIMESTAMP_NTZ    AS order_updated_at,
+  o.closed_at::TIMESTAMP_NTZ     AS order_closed_at,
+  o.state,
+  o.version,
+  o.total_money_amount,
+  o.total_tax_money_amount,
+  o.total_discount_money_amount,
+  o.total_tip_money_amount,
+  o.total_service_charge_money_amount,
+  na.net_amounts_total_money_amount    AS net_total_amount,
+  na.net_amounts_total_money_currency  AS net_currency,
+  ra.return_amounts_total_money_amount AS return_amount,
+  ra.return_amounts_total_money_currency AS return_currency
+FROM BRONZE.orders o
+LEFT JOIN BRONZE.net_amounts    na ON na.order_id    = o.order_id
+LEFT JOIN BRONZE.return_amounts ra ON ra.order_id    = o.order_id
+WHERE o.order_id IS NOT NULL;
+
+
+
+CREATE OR REPLACE TABLE silver_line_items AS
+SELECT
+  li.order_id,
+  li.location_id,
+  li.line_item_uid,
+  li.name            AS item_name,
+  TRY_TO_NUMBER(li.quantity) AS quantity,
+  li.catalog_object_id,
+  li.catalog_version,
+  li.variation_name,
+  li.item_type,
+  li.base_price_money_amount        AS base_price,
+  li.base_price_money_currency      AS base_currency,
+  li.variation_total_price_money_amount AS variation_price,
+  li.variation_total_price_money_currency AS variation_currency,
+  li.gross_sales_money_amount       AS gross_sales,
+  li.gross_sales_money_currency     AS gross_currency,
+  li.total_tax_money_amount         AS tax_amount,
+  li.total_tax_money_currency       AS tax_currency,
+  li.total_discount_money_amount    AS discount_amount,
+  li.total_discount_money_currency  AS discount_currency,
+  li.total_money_amount             AS line_total,
+  li.total_money_currency           AS line_currency,
+  li.total_service_charge_money_amount AS service_charge,
+  li.total_service_charge_money_currency AS service_charge_currency
+FROM BRONZE.line_items li
+WHERE li.line_item_uid IS NOT NULL;
+
+
+CREATE OR REPLACE TABLE silver_tenders AS
+SELECT
+  t.order_id,
+  t.tender_id,
+  t.tender_created_at::TIMESTAMP_NTZ AS tender_created_at,
+  t.tender_amount_money_amount      AS tender_amount,
+  t.tender_amount_money_currency    AS tender_currency,
+  t.tender_processing_fee_money_amount AS fee_amount,
+  t.tender_processing_fee_money_currency AS fee_currency,
+  t.tender_type,
+  t.tender_card_details_status      AS card_status,
+  t.tender_card_details_card_card_brand AS card_brand,
+  t.tender_card_details_card_last_4    AS card_last4,
+  t.tender_card_details_entry_method AS entry_method,
+  t.tender_payment_id,
+  t.tender_customer_id
+FROM BRONZE.tenders t;
+
+CREATE OR REPLACE TABLE silver_orders
+CLUSTER BY (order_created_at)  AS
+SELECT
+  o.order_id,
+  o.location_id,
+  o.created_at::TIMESTAMP_NTZ    AS order_created_at,
+  o.updated_at::TIMESTAMP_NTZ    AS order_updated_at,
+  o.closed_at::TIMESTAMP_NTZ     AS order_closed_at,
+  o.state,
+  o.version,
+  o.total_money_amount,
+  o.total_tax_money_amount,
+  o.total_discount_money_amount,
+  o.total_tip_money_amount,
+  o.total_service_charge_money_amount,
+  na.net_amounts_total_money_amount    AS net_total_amount,
+  na.net_amounts_total_money_currency  AS net_currency,
+  ra.return_amounts_total_money_amount AS return_amount,
+  ra.return_amounts_total_money_currency AS return_currency,
+  os.source_name
+FROM BRONZE.orders o
+LEFT JOIN BRONZE.net_amounts    na ON na.order_id    = o.order_id
+LEFT JOIN BRONZE.return_amounts ra ON ra.order_id    = o.order_id
+LEFT JOIN BRONZE.order_sources os ON os.order_id    = o.order_id
+WHERE o.order_id IS NOT NULL
+;
+
+ALTER TABLE silver_line_items
+  CLUSTER BY (order_id);
+
+  ALTER TABLE silver_tenders
+  CLUSTER BY (order_id);
+
+  
